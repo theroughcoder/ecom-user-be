@@ -1,7 +1,7 @@
 package u.ecom_user_be.service.impl;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import u.ecom_user_be.dto.request.ProfileUpdateRequest;
