@@ -1,6 +1,10 @@
 package u.ecom_user_be.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,6 +15,7 @@ import u.ecom_user_be.dto.request.UserUpdateRequest;
 import u.ecom_user_be.dto.response.UserResponse;
 import u.ecom_user_be.entity.User;
 import u.ecom_user_be.repository.UserRepository;
+import u.ecom_user_be.security.JwtTokenService;
 import u.ecom_user_be.service.UserService;
 
 import java.util.List;
@@ -20,16 +25,33 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class UserServiceImpl implements UserService {
 
-    private static final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
-
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final AuthenticationManager authenticationManager;
+    private final JwtTokenService jwtTokenService;
 
     @Override
     public UserResponse signIn(SignInRequest request) {
-        return userRepository.findByEmail(request.getEmail())
-                .filter(user -> passwordEncoder.matches(request.getPassword(), user.getPassword()))
-                .map(UserResponse::from)
-                .orElseThrow(() -> new RuntimeException("Invalid email or password"));
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+            );
+        } catch (BadCredentialsException e) {
+            throw new RuntimeException("Email or password is incorrect");
+        }
+
+        String token = jwtTokenService.generateToken(authentication);
+        Long expiresAt = jwtTokenService.extractExpirationTime(token);
+
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        return UserResponse.from(user).toBuilder()
+                .token(token)
+                .tokenType("Bearer")
+                .expiresAt(expiresAt)
+                .build();
     }
 
     @Override
@@ -54,7 +76,19 @@ public class UserServiceImpl implements UserService {
                 .role(User.Role.USER)
                 .build();
 
-        return UserResponse.from(userRepository.save(user));
+        User savedUser = userRepository.save(user);
+
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+        );
+        String token = jwtTokenService.generateToken(authentication);
+        Long expiresAt = jwtTokenService.extractExpirationTime(token);
+
+        return UserResponse.from(savedUser).toBuilder()
+                .token(token)
+                .tokenType("Bearer")
+                .expiresAt(expiresAt)
+                .build();
     }
 
     @Override

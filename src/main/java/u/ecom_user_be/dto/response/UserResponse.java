@@ -7,7 +7,7 @@ import u.ecom_user_be.entity.User;
 import java.time.LocalDateTime;
 
 @Data
-@Builder
+@Builder(toBuilder = true)
 public class UserResponse {
 
     private Long id;
@@ -19,6 +19,9 @@ public class UserResponse {
     private boolean active;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String token;
+    private String tokenType;
+    private Long expiresAt;
 
     public static UserResponse from(User user) {
         return UserResponse.builder()
